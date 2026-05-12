@@ -863,6 +863,14 @@ iwalk(data_to_ver, \(x, idx) {
   }
   if(!dir.exists(meta_folder_path)){
     dir.create(meta_folder_path)
+    #save the site order file and seasonal threshold file to the meta folder for use in the app
+    file.copy(from = here("data", "derived", "auto_qaqc_files", "site_order", "site_order_pre2023.yml"), to = meta_folder_path)
+    file.copy(from = here("data","derived","auto_qaqc_files", "thresholds","seasonal_thresholds20260304-T175010Z.csv"), to = meta_folder_path)
+    file.rename(from = here(meta_folder_path, "seasonal_thresholds20260304-T175010Z.csv"), to = here(meta_folder_path, "seasonal_thresholds.csv"))
+    #copy over the available flags file to the meta folder for use in the app
+    file.copy(from = here("data","raw","sensor", "manual_data_verification","2025_cycle", "in_progress", "meta",   "available_flags.csv"), to = meta_folder_path)
+    #copy over the parameter auto selections
+    file.copy(from = here("data","raw","sensor", "manual_data_verification","2025_cycle", "in_progress", "meta",   "parameter_autoselections.csv"), to = meta_folder_path)
   }
   
   all_data_parsed <- x%>%
