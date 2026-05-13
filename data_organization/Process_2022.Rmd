@@ -1117,7 +1117,7 @@ years <- c(2022)
 hydro_share_datasets <- map(years, ~function(year_cycle){
   
   
-drift_corrected_files <- list.files(path = here("data/raw/sensor/manual_data_verification/", paste0(year_cycle, "_cycle"),"/post_verification/"), pattern = "*.parquet", full.names = TRUE)
+drift_corrected_files <- list.files(path = here("data/raw/sensor/manual_data_verification/", paste0(year_cycle, "_cycle"), "/post_verification/"), pattern = "*.parquet", full.names = TRUE)
 
 drift_corrected_data <- map_dfr(drift_corrected_files, read_parquet)%>%
   select(DT_round, DT_join, site, parameter,units, 
