@@ -1181,7 +1181,7 @@ raw_dataset <- all_datasets%>%
          auto_qc_flag, mal_flag, user_qc_flag, qc_status, modifications)
     
 final_dataset <- raw_dataset %>%
-  select(DateTime_UTC, site, parameter, units, value_raw, value_final = value_post_drift_corr,user_qc_flag, modifications)
+  select(DateTime_UTC, site, parameter, units, value_raw, value_final = value_post_drift_corr, user_qc_flag, modifications)
 
 return(list(raw_dataset = raw_dataset, final_dataset = final_dataset))
 })
