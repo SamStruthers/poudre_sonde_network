@@ -1216,7 +1216,7 @@ return(list(raw_dataset = raw_dataset, final_dataset = final_dataset))
 #   dir.create(here( "data/collated/sensor/hydroshare_pub", year), recursive = TRUE)
 # }
 # 
-# cleaned_file_name <- here( "data/collated/sensor/hydroshare_pub", year, paste0("CSU_ROSS_", year,"_cleaned.csv"))
+# cleaned_file_name <- here( "data/collated/sensor/hydroshare_pub", year, paste0("CSU_ROSS_", year, "_cleaned.csv"))
 # 
 # raw_file_name <- here( "data/collated/sensor/hydroshare_pub", year, paste0("CSU_ROSS_", year,"_raw.csv"))
 # 
