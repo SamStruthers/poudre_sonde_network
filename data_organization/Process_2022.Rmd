@@ -71,7 +71,7 @@ furrr_options(
 ```{r}
 # Read in the threshold data first
 sensor_thresholds <- read_yaml(here("data","derived","auto_qaqc_files", "thresholds", "sensor_spec_thresholds.yml"))
-season_thresholds <- read_csv(here("data","derived","auto_qaqc_files", "thresholds","seasonal_thresholds20260304-T175010Z.csv"), show_col_types = FALSE) %>%
+season_thresholds <- read_csv(here("data","derived","auto_qaqc_files", "thresholds", "seasonal_thresholds20260304-T175010Z.csv"), show_col_types = FALSE) %>%
   fix_site_names()
 
 # Configure your credentials files
