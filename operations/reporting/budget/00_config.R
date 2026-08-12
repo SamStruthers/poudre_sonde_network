@@ -1,9 +1,10 @@
 # =============================================================================
 # 00_config.R
 # Central configuration for the monthly budget pipeline.
-# This is the ONLY file you should need to hand-edit for a normal monthly run.
-# Sourced by 01_check_hours.Rmd, 02_prep_charges.Rmd, and 03_report_gen.Rmd.
+# Sourced by 01_check_hours.Rmd, 02_prep_charges_report_gen.Rmd.
+# Shared functions for the monthly budget pipeline.
 # =============================================================================
+
 
 suppressPackageStartupMessages({
   library(tidyverse)
@@ -11,10 +12,10 @@ suppressPackageStartupMessages({
   library(here)
 })
 
-
+`%nin%` <- Negate(`%in%`)
 
 # -----------------------------------------------------------------------------
-# 4. SHARED FILE PATHS  --------------------------------------------------------
+# 1. SHARED FILE PATHS  --------------------------------------------------------
 #    All budget data (rates + timeclock + equipment + travel) lives in ONE
 #    workbook with a `project` column, so both projects read the same file.
 # -----------------------------------------------------------------------------
@@ -26,9 +27,8 @@ mwater_creds_file <- here("creds", "mWaterCreds.yml")
 idc_rate <- 0.10  # indirect cost rate, applied to (personnel + equipment + travel)
 
 # -----------------------------------------------------------------------------
-# 5. PER-PROJECT SETTINGS  -----------------------------------------------------
-#    To add a new project sharing this job code, add one entry here -- nothing
-#    else in 01/02/03 needs to change.
+# 2. HOURLY RATES  ------------------------------------------------------------
+#    The hourly rates for each employee, used to calculate the cost of their time.
 # -----------------------------------------------------------------------------
 projects <- list(
 
@@ -49,7 +49,7 @@ projects <- list(
 
   UCLP = list(
     code           = "UCLP",
-    report_title   = "UCLP DSS",
+    report_title   = "PDSS",
     caption_suffix = " to City of Fort Collins IGA",
     output_dir     = here("docs", "uclp_dss", "docs", "monthly_budget"),
     category_order = c("Field", "Equipment", "Travel", "Admin", "Annual Report", "QAQC"),
@@ -69,20 +69,8 @@ get_project_cfg <- function(project_code) {
   }
   cfg
 }
-# =============================================================================
-# R/budget_functions.R
-# Shared functions for the monthly budget pipeline. Source this after
-# 00_config.R. Nothing in here should reference month_select/year_select
-# directly -- always pass them in as arguments, so these functions stay
-# reusable and testable.
-# =============================================================================
 
-suppressPackageStartupMessages({
-  library(tidyverse)
-  library(readxl)
-})
-
-`%nin%` <- Negate(`%in%`)
+#Functions for loading and processing data for the monthly budget pipeline
 
 # -----------------------------------------------------------------------------
 # Hourly rates ------------------------------------------------------------
@@ -109,7 +97,7 @@ load_hourly_rates <- function(rates_file) {
 # Timeclock / equipment / travel loaders -----------------------------------
 # Each returns ALL projects unless `project` is supplied, so the same call
 # works for both the cross-project reconciliation step (01) and the
-# per-project prep step (02).
+# per-project prep/gen step (02).
 # -----------------------------------------------------------------------------
 load_timeclock <- function(reporting_xlsx, month_select, year_select, project = NULL) {
   out <- read_excel(reporting_xlsx, sheet = "staff_timeclock") %>%
@@ -173,7 +161,6 @@ cost_personnel <- function(hours_summary, hourly_rates, exclude_categories = cha
 # -----------------------------------------------------------------------------
 # Reconciliation: hours worked (from $ billed / hourly rate) vs. hours logged
 # in the timeclock sheet, PER PERSON ACROSS BOTH PROJECTS (single job code).
-# This replaces double_check_hours.R.
 # -----------------------------------------------------------------------------
 reconcile_hours_and_cost <- function(timeclock, hourly_rates, hours_billed_raw) {
 
@@ -315,7 +302,6 @@ path_charges_final <- function(cfg, month_select, year_select) {
 #-------------------------------------------------------------------------
 generate_monthly_boxplot_summary <- function(sensor_data, year, month){
 
-  `%nin%` = Negate(`%in%`)
   # Parse the month string as part of a date and extract the month number
   month_number <- mdy(paste(month, "1, 2020")) %>% lubridate::month()
   month_name <- mdy(paste(month, "1, 2020")) %>% lubridate::month(label = TRUE)
@@ -328,8 +314,8 @@ generate_monthly_boxplot_summary <- function(sensor_data, year, month){
 
 
   # Merge with your data using left_join
-  box_data_with_limits <- box_data #%>%
-  box_data_with_limits$natural_name <- factor(box_data_with_limits$natural_name, levels = site_order )
+  box_data_with_limits <- box_data %>%
+    mutate(natural_name = factor(natural_name, levels = site_order ))
 
 
   convert_season_to_months <- function(season_range) {

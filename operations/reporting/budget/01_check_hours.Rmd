@@ -16,22 +16,17 @@ updating the xlsx to confirm everything reconciles before generating reports.
 # User inputs required
 
 -   Edit `month_select` / `year_select` and the Symphony $ amounts below
+-   Once a year, update the `hourly_rates` xlsx with the new rates for each person (see `00_config.R`)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 source(here::here("operations/reporting/budget/00_config.R"))
-# -----------------------------------------------------------------------------
-# 1. MONTH / YEAR  ------------------------------------------------------------
-#    Change these once per month. Every downstream script reads from here.
-# -----------------------------------------------------------------------------
+###### ------ Month/Year SELECTOR ------ ######
 month_select <- 7
 year_select  <- 2026
-
-# -----------------------------------------------------------------------------
-# 2. SYMPHONY 53-ACCOUNT $ AMOUNTS  --------------------------------------------
+###### ------ SYMPHONY 53-ACCOUNT $ AMOUNTS ------ ######
 #    Paste in the $ billed per person (whole project, both PWQN + UCLP combined,
 #    since they share one job code) from Symphony each month.
-# -----------------------------------------------------------------------------
 hours_billed_raw <- tibble::tribble(
   ~person,        ~monthly_amount,
   "STRUTHERS",    3701,
@@ -41,13 +36,11 @@ hours_billed_raw <- tibble::tribble(
   "DUNCAN",       2856
 )
 
-# -----------------------------------------------------------------------------
-# 3. NON-PERSONNEL (equipment/travel) COSTS, per project  --------------------
+###### ------ NON-PERSONNEL (equipment/travel) COSTS, per project------ ######
 #    These usually come straight off the equipment_charges / travel sheets in
 #    the xlsx (see budget_functions::load_equipment()/load_travel()), but if
 #    you need to hand-override a project's totals for the Symphony 53-account
 #    reconciliation step, do it here.
-# -----------------------------------------------------------------------------
 # (left NULL by default -- 01_check_hours.Rmd will pull these live from the xlsx.
 #  Only set this if you need to override.)
 non_personnel_override <- NULL
@@ -62,26 +55,27 @@ travel       <- load_travel(reporting_xlsx, month_select, year_select)
 reconciled <- reconcile_hours_and_cost(timeclock, hourly_rates, hours_billed_raw)
 ```
 
-## 1. Hours: logged (timeclock) vs. implied by $ billed
+## 1. Hours: logged (staff_timeclock) vs. implied by $ billed
 
-`remaining_hours` should be close to 0. Positive means you've billed for
-more hours than are logged yet (update the timeclock sheet); negative means
-you've logged more hours than were billed.
+`remaining_hours` should be close to 0. Positive means added
+more hours than should exist based on Symphony Data; negative means
+you've added more hours than were billed.
+Update the `staff_timeclock` sheet in `pwqn_budget_reporting.xlsx` until this table reconciles.
 
 ```{r hours-check}
 reconciled$hours_check
 ```
 
-## 2. Dollars: logged (timeclock x rate) vs. Symphony $ billed
+## 2. Dollars: logged (staff hours x rate) vs. Symphony $ billed
 
 ```{r cost-check}
 reconciled$cost_check
-sum(reconciled$cost_check$remaining_amount) #Should be close to 0
+sum(reconciled$cost_check$remaining_amount) #Should be close to 0, wiggle room <5 $ is okay
 ```
 
 ## 3. Final totals per project (personnel + equipment + travel + IDC)
 
-These are the numbers to copy into your expenditure tracker once the two
+These are the numbers to copy into the expenditure tracker once the two
 tables above reconcile.
 
 ```{r final-totals}
@@ -95,6 +89,5 @@ final_totals # Double check the totals against the Symphony values and Invoicing
 ```
 
 
-**Next step:** once the tables above look right, update
-`pwqn_budget_reporting.xlsx` as needed, re-knit this file to confirm, then
-move on to `02_prep_charges.Rmd` for each project.
+**Next step:**  update `pwqn_budget_reporting.xlsx` as needed until the tables above look right, re-run this file to confirm, then
+move on to `02_prep_charges_gen_report.Rmd` for each project.

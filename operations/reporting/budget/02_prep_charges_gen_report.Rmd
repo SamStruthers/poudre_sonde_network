@@ -4,16 +4,11 @@ output: word_document
 
 ```{r project-select, include=FALSE}
 # User inputs required
-
 # - Set `project_select` below to `"PWQN"` or `"UCLP"`, then knit.
-# - Fill in the "General Outline of Work" bullet points below before knitting.
-# - Month/year, hourly rates, and dollar amounts are set in `00_config.R`.
+# - Fill in the "General Outline of Work" bullet points below after knitting.
 ###### ------ PROJECT SELECTOR ------ ######
 project_select <- "PWQN"   # or "UCLP"
-# -----------------------------------------------------------------------------
-# 1. MONTH / YEAR  ------------------------------------------------------------
-#    Change these once per month. Every downstream script reads from here.
-# -----------------------------------------------------------------------------
+###### ------ Month/Year SELECTOR ------ ######
 month_select <- 7
 year_select  <- 2026
 ```
