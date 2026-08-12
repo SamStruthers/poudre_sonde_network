@@ -29,11 +29,11 @@ year_select  <- 2026
 #    since they share one job code) from Symphony each month.
 hours_billed_raw <- tibble::tribble(
   ~person,        ~monthly_amount,
-  "STRUTHERS",    3701,
+  "STRUTHERS",    0,
   "DE LA TORRE",  0,
   "WILLI",        0,
-  "ROUIN",        1237,
-  "DUNCAN",       2856
+  "ROUIN",        0,
+  "DUNCAN",       0
 )
 
 ###### ------ NON-PERSONNEL (equipment/travel) COSTS, per project------ ######
