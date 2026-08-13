@@ -17,7 +17,8 @@ year_select  <- 2026
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 source(here::here("operations/reporting/budget/00_config.R"))
 
-package_loader <- function(x) {
+package_loader <- function(x) { 
+  if(!x == "ross.wq.tools" & !x %in% installed.packages()) devtools::install_github(paste0("rossyndicate/", x))
   if (!x %in% installed.packages()) install.packages(x)
   library(x, character.only = TRUE)
 }
