@@ -1,13 +1,30 @@
----
+------------------------------------------------------------------------
 
-editor_options: 
-  markdown: 
-    wrap: 72
----
+editor_options: markdown: wrap: 72 ---
 
 # Monthly Budget Pipeline
 
 Once a month, the City of Fort Collins requests a breakdown of costs for both projects (PWQN & UCLP). These files are designed to make this process easier and standardized
+
+General Workflow:
+
+1.  Run appropriate `data_organization/Process_YYYY.rmd` script until data is updated in `flagged` directory
+
+2.  Email Invoicing Team for monthly expenditure tracker (Erik Anderson)
+
+3.  Load Symphony for PWQN/UCLP 53 account
+
+4.  Update month/year and symphony values in `01` script
+
+5.  Get \# of hours per person based on hourly rate
+
+6.  Update `pwqn_budget_reporting.xslx` file with hours/categories per person and project
+
+7.  re-run 01 script until values align
+
+8.  Update the expenditure tracker
+
+9.  Run 02 script for each project, save + update docx to paths above 9) Email docx to Jared
 
 ## Files
 
