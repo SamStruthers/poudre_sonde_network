@@ -1,0 +1,398 @@
+---
+title: "pwqn_data_report"
+author: "Maggie Rouin"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# set up
+
+## load packages
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+# loading packages
+package_loader <- function(x) {
+  if (x %in% installed.packages()) {
+    suppressMessages({
+      library(x, character.only = TRUE)
+    })
+  } else {
+    suppressMessages({
+      install.packages(x)
+      library(x, character.only = TRUE)
+    })
+  }
+}
+
+invisible(
+  lapply(c("arrow",
+           "data.table",
+           "httr",
+           "httr2",
+           "tidyverse",
+           "lubridate",
+           "zoo",
+           "padr",
+           "stats",
+           "RcppRoll",
+           "yaml",
+           "ross.wq.tools",
+           "here",
+           "furrr", 
+           "dataRetrieval", 
+           "cdssr", 
+           "ggplot2", 
+           "ggthemes", 
+           "patchwork",
+           "sf", 
+           "plotly",
+           "viridisLite",
+           "tmap",
+           "knitr",
+           "flextable"
+  ),
+  package_loader)
+)
+
+`%nin%` = Negate(`%in%`)
+```
+
+
+## sites, parameters, and plots
+```{r echo=FALSE}
+if ({
+  require(systemfonts)
+  ("Roboto" %in% system_fonts()$family)
+}) {
+  ROSS_theme <- theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5, face = 'bold', family = "Roboto"),
+          plot.subtitle = element_text(hjust = 0.5, family = "Roboto"))
+} else {
+  message("You do not have the Roboto font family installed on your computer, currenly using ggplot default text family.
+          See ROSS_themes.R for directions to install the font family on your computer.")
+  ROSS_theme <- theme_bw() +
+    theme(plot.title = element_text(hjust = 0.5, face = 'bold'),
+          plot.subtitle = element_text(hjust = 0.5))
+}
+
+
+#Site names
+site_names <- tibble(site = c("pbd", "bellvue", "salyer", "udall", "riverbend", "cottonwood" ,"elc",  "archery", "riverbluffs"), 
+                     site_name = c("Canyon Mouth", "Tamasag", "Legacy", "Lincoln", "Timberline", "Prospect" ,"Boxelder",  "Archery", "River Bluffs"), 
+                     site_color = c( "#000000" , "#185BB4","#009DD1","#00F5DC", "#00F0C0", "#00D684", "#00BD48",  "#00DB58", "#0FFF6B" ) )
+
+#Site Order from up to downstream
+
+site_order = c("Canyon Mouth", "Bellvue", "Salyer", "Udall", "Riverbend", "Cottonwood", "ELC", "Archery", "River Bluffs")
+
+
+# Parameter labels
+labels <- tibble(param = c("Turbidity", "Specific Conductivity", "Depth", "Chl-a Fluorescence", "FDOM Fluorescence", "Temperature", "DO", 'pH', "Flow"),
+                 label = c("Turbidity (NTU)", "Specific Conductivity (uS/cm)", "Depth (ft)", "Chl-a Fluorescence (RFU)", "FDOM Fluorescence (RFU)", "Temperature (C)", "DO (mg/L)", 'pH', "Flow (cfs)"))
+
+
+chem_expressions <- list(
+  "Turbidity" = expression(Turbidity ~ (NTU)),
+  "Chl-a Fluoresence"      = expression(Chl-a ~ Fluoresence ~ (RFU)),
+  "FDOM Fluoresence"      = expression(FDOM ~ Fluoresence ~ (RFU)),
+  "Specific Conductivity" = expression(Specific ~ Conductivity ~ (mu ~ S ~ cm^{-1})),
+  "Depth"      = expression(Depth ~ (ft)),
+  "Temperature" = expression(Temperature ~ (degree ~ C)),
+  "DO"        = expression(DO ~ (mg ~ L^{-1})),
+  "Flow"      = expression(Flow ~ (cfs)),
+  "pH"        = expression(pH)
+)
+
+
+params <- paste(labels$param, collapse = "|")
+
+```
+
+
+# read in data
+
+```{r echo=FALSE}
+all_data <- list.files("operations/reporting/pwqn_data_report/data", pattern = "\\.csv$", 
+                       full.names = TRUE) |> 
+  map_df(read_csv)
+
+pwqn_data <- all_data |>
+  filter(value_final != "n/a") |> 
+  mutate(DateTime_UTC = with_tz(DateTime_UTC, tz = "MST")) |> 
+  rename(DateTime_MT = DateTime_UTC) |> 
+  mutate(
+    year = year(DateTime_MT),
+    month = month(DateTime_MT),
+    year_month = floor_date(DateTime_MT, unit = "month")) |> 
+  left_join(labels, by = c( "parameter" = "param")) |> 
+  left_join(site_names, by = "site") |> 
+  filter(site_name != "NA")
+
+pwqn_data_clean <- pwqn_data |>
+  distinct(DateTime_MT, site_name, parameter, .keep_all = TRUE)
+
+print(paste("Original records:", nrow(pwqn_data)))
+print(paste("Records after removing duplicates:", nrow(pwqn_data_clean)))
+print(paste("Duplicates removed:", nrow(pwqn_data) - nrow(pwqn_data_clean)))
+
+check_duplicates <- pwqn_data_clean |>
+  group_by(DateTime_MT, site_name, parameter) |>
+  filter(n() > 1)
+
+print(paste("Duplicates remaining:", nrow(check_duplicates)))
+
+counts <- pwqn_data_clean |> 
+  count(site = "archery", parameter = "pH", month = 2)
+
+```
+
+
+# Graphs
+```{r echo=FALSE, fig.width=14, fig.height=10, out.width="100%"}
+#yearly
+yearly_percent <- pwqn_data_clean |> 
+  group_by(year, parameter, site_name) |>
+  summarise(actual_records = n(),
+    .groups = 'drop') |> 
+  mutate(expected_records = if_else(
+      leap_year(year),
+      366 * 24 * 60 / 15,
+      365 * 24 * 60 / 15),
+    data_pct = (actual_records / expected_records) * 100) |> 
+  arrange(year)
+
+yearly_plot <-  yearly_percent |> 
+  ggplot(aes(x = factor(year), y = data_pct, fill = site_name)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~parameter, scales = "free_y") +
+  labs(title = "Data Availability by Year",
+    x = "Year",
+    y = "Availability (%)",
+    fill = "Site") +
+  ROSS_theme +
+  ylim(0, 105)
+
+yearly_plot
+
+
+#monthly
+monthly_percent <- pwqn_data_clean |> 
+  mutate(month = month(DateTime_MT),
+         year = year(DateTime_MT)) |> 
+  group_by(year, month, parameter, site_name) |>
+  summarise(actual_records = n(),
+    .groups = 'drop') |> 
+  mutate(days_in_month = case_when(
+      month == 2 ~ if_else(year %in% c(2020,2024), 29,28),
+      month %in% c(4, 6, 9, 11) ~ 30, TRUE ~ 31),
+    expected_records = days_in_month * 24 * 60 / 15,
+    data_pct = (actual_records / expected_records) * 100) |>
+  group_by(month, parameter, site_name) |> 
+  summarise(actual_records = mean(actual_records),
+    expected_records = mean(expected_records),
+    avg_data_pct = mean(data_pct),
+    .groups = 'drop') |> 
+  rename(data_pct = avg_data_pct) |> 
+  mutate(month_name = factor(month.abb[month], levels = month.abb)) |> 
+  arrange(month, parameter, site_name)
+
+monthly_plot <- monthly_percent |> 
+  ggplot(aes(x = month_name, y = data_pct, fill = site_name)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~parameter) +
+  labs(title = "Average Monthly Data Availability",
+    x = "Month",
+    y = "Availability (%)",
+    fill = "Site") +
+  ROSS_theme +
+  ylim(0, 105)
+
+monthly_plot
+```
+
+
+# Heatmaps
+```{r echo=FALSE, fig.width=14, fig.height=10, out.width="100%"}
+#yearly
+yearly_heatmap <- yearly_percent |>
+  ggplot(aes(x = factor(year), y = site_name, fill = data_pct)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  scale_fill_gradient(low = "red", high = "green", limits = c(0, 100)) +
+  facet_wrap(~parameter, scales = "free_y", ncol = 3) +
+  labs(title = "Yearly Data Availability",
+    x = "Year",
+    y = "Site",
+    fill = "Availability (%)") +
+  ROSS_theme +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        axis.text.x = element_text(face = "bold", size = 12),
+        axis.text.y = element_text(size = 12),
+        strip.text = element_text(face = "bold", size = 12),
+        legend.position = "bottom")
+ 
+print(yearly_heatmap)
+
+
+#monthly
+monthly_heatmap <- monthly_percent |>
+  mutate(month_name = factor(month_name, levels = month.abb)) |>
+  ggplot(aes(x = month_name, y = site_name, fill = data_pct)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  scale_fill_gradient(low = "red", high = "green", limits = c(0, 100)) +
+  facet_wrap(~parameter, scales = "free_y", ncol = 3) +
+  labs(title = "Monthly Data Availability",
+    x = "Month",
+    y = "Site",
+    fill = "Availability (%)") +
+  ROSS_theme +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        axis.text.x = element_text(face = "bold", size = 12),
+        axis.text.y = element_text(size = 12),
+        strip.text = element_text(face = "bold", size = 12),
+        legend.position = "bottom")
+ 
+print(monthly_heatmap)
+
+```
+
+
+#tables for percent of data available
+```{r echo=FALSE}
+#yearly
+yearly_data_table_site <- yearly_percent |>
+  group_by(year, parameter, site_name) |>
+  summarise(avg_availability = mean(data_pct),
+    min_availability = min(data_pct),
+    max_availability = max(data_pct),
+    .groups = 'drop') |> 
+  mutate(avg_availability = round(avg_availability, 2),
+    min_availability = round(min_availability, 2),
+    max_availability = round(max_availability, 2))
+
+yearly_site_flextable <- yearly_data_table_site |> 
+  flextable() |> 
+  set_header_labels(year = "Year",
+    parameter = "Parameter",
+    site_name = "Site",
+    avg_availability = "Average Availability (%)",
+    min_availability = "Minimum Availability (%)",
+    max_availability = "Maximum Availability (%)") |> 
+  colformat_num(j = "year",
+    big.mark = "",
+    digits = 0) |>
+  colformat_num(j = c("avg_availability", "min_availability", "max_availability"),
+    big.mark = "",
+    digits = 2) |>
+  theme_vanilla() |>
+  autofit() |>
+  bold(part = "header") |>
+  color(part = "header", color = "white") |>
+  bg(part = "header", bg = "darkblue") |>
+  align(align = "center", part = "all") |>
+  align(j = 1:3, align = "left")
+
+print(yearly_site_flextable)
+
+yearly_data_table <- yearly_percent |>
+  group_by(year, parameter) |>
+  summarise(avg_availability = mean(data_pct),
+    min_availability = min(data_pct),
+    max_availability = max(data_pct),
+    .groups = 'drop') |> 
+  mutate(avg_availability = round(avg_availability, 2),
+    min_availability = round(min_availability, 2),
+    max_availability = round(max_availability, 2))
+
+yearly_flextable <- yearly_data_table |> 
+  flextable() |> 
+  set_header_labels(year = "Year",
+    parameter = "Parameter",
+    avg_availability = "Average Availability (%)",
+    min_availability = "Minimum Availability (%)",
+    max_availability = "Maximum Availability (%)") |> 
+   colformat_num(j = "year",
+    big.mark = "",
+    digits = 0) |>
+  colformat_num(j = c("avg_availability", "min_availability", "max_availability"),
+    big.mark = "",
+    digits = 2) |>
+  theme_vanilla() |>
+  autofit() |>
+  bold(part = "header") |>
+  color(part = "header", color = "white") |>
+  bg(part = "header", bg = "darkblue") |>
+  align(align = "center", part = "all") |>
+  align(j = 1:2, align = "left")
+
+print(yearly_flextable)
+
+
+#monthly
+monthly_table_site <- monthly_percent |>
+  group_by(month_name, parameter, site_name) |>
+  summarise(avg_availability = mean(data_pct),
+    min_availability = min(data_pct),
+    max_availability = max(data_pct),
+    .groups = 'drop') |> 
+  mutate(avg_availability = round(avg_availability, 2),
+    min_availability = round(min_availability, 2),
+    max_availability = round(max_availability, 2))
+
+monthly_site_flextable <- monthly_table_site |> 
+  flextable() |> 
+  set_header_labels(month_name = "Month",
+    parameter = "Parameter",
+    site_name = "Site",
+    avg_availability = "Average Availability (%)",
+    min_availability = "Minimum Availability (%)",
+    max_availability = "Maximum Availability (%)") |> 
+   colformat_num(j = "month_name",
+    big.mark = "",
+    digits = 0) |>
+  colformat_num(j = c("avg_availability", "min_availability", "max_availability"),
+    big.mark = "",
+    digits = 2) |>
+  theme_vanilla() |>
+  autofit() |>
+  bold(part = "header") |>
+  color(part = "header", color = "white") |>
+  bg(part = "header", bg = "darkblue") |>
+  align(align = "center", part = "all") |>
+  align(j = 1:3, align = "left")
+
+print(monthly_site_flextable)
+
+monthly_data_table <- monthly_percent |>
+  group_by(month_name, parameter) |>
+  summarise(avg_availability = mean(data_pct),
+    min_availability = min(data_pct),
+    max_availability = max(data_pct),
+    .groups = 'drop') |> 
+  mutate(avg_availability = round(avg_availability, 2),
+    min_availability = round(min_availability, 2),
+    max_availability = round(max_availability, 2))
+
+monthly_flextable <- monthly_data_table |> 
+  flextable() |> 
+  set_header_labels(month_name = "Month",
+    parameter = "Parameter",
+    avg_availability = "Average Availability (%)",
+    min_availability = "Minimum Availability (%)",
+    max_availability = "Maximum Availability (%)") |> 
+   colformat_num(j = "month_name",
+    big.mark = "",
+    digits = 0) |>
+  colformat_num(j = c("avg_availability", "min_availability", "max_availability"),
+    big.mark = "",
+    digits = 2) |>
+  theme_vanilla() |>
+  autofit() |>
+  bold(part = "header") |>
+  color(part = "header", color = "white") |>
+  bg(part = "header", bg = "darkblue") |>
+  align(align = "center", part = "all") |>
+  align(j = 1:2, align = "left")
+
+print(monthly_flextable)
+
+```
