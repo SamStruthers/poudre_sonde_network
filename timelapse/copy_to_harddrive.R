@@ -3,9 +3,9 @@ library(fs)
 
 # ---- SETTINGS ---------------------------------------------------------------
 src_root <- "timelapse_data"   # original (OneDrive) folder
-dst_root <- "tl"                   # destination folder
+dst_root <- "tl"                   # destination folder (Symlinked Harddrive)
 
-# For testing: set to a sub folder of timelapse (e.g. "2024/site_A").
+# For testing: set to a sub folder of timelapse (e.g. "2024_compiled/archery").
 # Use "" to run over the whole of timelapse.
 sub_folder <- "2025_compiled/elc"
 
@@ -56,6 +56,7 @@ copy_one <- function(src, dst) {
 }
 
 # ---- BUILD FILE LIST --------------------------------------------------------
+# Could easily map over a list of subfolders, but for now just do one (A ~30 GB folder took ~3 hours)
 files <- tibble(src = dir_ls(search_dir, recurse = TRUE, type = "file")) |>
   mutate(
     rel = path_rel(src, start = src_root),   # keeps the same sub folder structure
